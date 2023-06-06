@@ -1,4 +1,4 @@
-module go-news
+module github.com/sandy13869/go-live
 
 go 1.20
 

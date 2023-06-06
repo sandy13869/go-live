@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"go-news/news"
 	"log"
 	"math"
 	"net/http"
@@ -11,6 +10,8 @@ import (
 	"strconv"
 	"text/template"
 	"time"
+
+	"github.com/sandy13869/go-live/news"
 
 	"github.com/joho/godotenv"
 )
