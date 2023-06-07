@@ -1,133 +1,40 @@
 package main
 
 import (
-	"bytes"
-	"log"
-	"math"
 	"net/http"
-	"net/url"
-	"os"
-	"strconv"
-	"text/template"
-	"time"
 
-	"github.com/sandy13869/go-live/news"
-
-	"github.com/joho/godotenv"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
-
-// var newsapi *news.Client
-var tpl = template.Must(template.ParseFiles("index.html"))
-
-type Search struct {
-	Query      string
-	NextPage   int
-	TotalPages int
-	Results    *news.Results
-}
-
-func (s *Search) IsLastPage() bool {
-	return s.NextPage >= s.TotalPages
-}
-
-func (s *Search) CurrentPage() int {
-	if s.NextPage == 1 {
-		return s.NextPage
-	}
-
-	return s.NextPage - 1
-}
-
-func (s *Search) PreviousPage() int {
-	return s.CurrentPage() - 1
-}
-
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	// w.Write([]byte("<h1>Hello Shalyn Baby...!</h2>"))
-	buf := &bytes.Buffer{}
-	err := tpl.Execute(w, nil)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	buf.WriteTo(w)
-}
-
-func searchHandler(newsapi *news.Client) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		u, err := url.Parse(r.URL.String())
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		params := u.Query()
-		searchQuery := params.Get("q")
-		page := params.Get("page")
-		if page == "" {
-			page = "1"
-		}
-
-		results, err := newsapi.FetchEverything(searchQuery, page)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		nextPage, err := strconv.Atoi(page)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		search := &Search{
-			Query:      searchQuery,
-			NextPage:   nextPage,
-			TotalPages: int(math.Ceil(float64(results.TotalResults) / float64(newsapi.PageSize))),
-			Results:    results,
-		}
-
-		if ok := !search.IsLastPage(); ok {
-			search.NextPage++
-		}
-
-		buf := &bytes.Buffer{}
-		err = tpl.Execute(buf, search)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		buf.WriteTo(w)
-	}
-}
 
 func main() {
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("Error loading .env file")
+	e := echo.New()
+
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+
+	e.GET("/", func(c echo.Context) error {
+		return c.HTML(http.StatusOK, "Hello, Docker!")
+	})
+
+	e.GET("/health", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, struct{ Status string }{Status: "OK"})
+	})
+
+	httpPort := "8080"
+	if httpPort == "" {
+		httpPort = "8080"
 	}
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = os.Getenv("PORT")
+
+	e.Logger.Fatal(e.Start(":" + httpPort))
+}
+
+// Simple implementation of an integer minimum
+// Adapted from: https://gobyexample.com/testing-and-benchmarking
+func IntMin(a, b int) int {
+	if a < b {
+		return a
 	}
-
-	apiKey := os.Getenv("NEWS_API_KEY")
-	if apiKey == "" {
-		log.Fatal("Env: apiKey must be set")
-	}
-
-	myClient := &http.Client{Timeout: 10 * time.Second}
-	newsapi := news.NewClient(myClient, apiKey, 20)
-
-	fs := http.FileServer(http.Dir("assets"))
-
-	mux := http.NewServeMux()
-	mux.Handle("/assets/", http.StripPrefix("/assets", fs))
-
-	mux.HandleFunc("/search", searchHandler(newsapi))
-	mux.HandleFunc("/", indexHandler)
-	http.ListenAndServe(":"+port, mux)
-
+	return b
 }
